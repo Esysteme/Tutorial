@@ -1,0 +1,466 @@
+<div id="content" class="mw-body" role="main">
+			<a id="top"></a>
+			<div id="mw-js-message" style="display:none;"></div>
+						<h1 id="firstHeading" class="firstHeading" lang="en-GB"><span dir="auto">Multi master with MariaDB 10</span></h1>
+			<div id="bodyContent">
+								<div id="siteSub">From photobox</div>
+								<div id="contentSub"></div>
+												<div id="jump-to-nav" class="mw-jump">
+					Jump to:					<a href="#mw-navigation">navigation</a>, 					<a href="#p-search">search</a>
+				</div>
+				<div id="mw-content-text" lang="en-GB" dir="ltr" class="mw-content-ltr"><p>The goal of this tutorial is to show you how use Multi Master, and aggregate databases with the same name but with different data from differents master on the same slave.
+</p><p>Example&nbsp;:
+</p>
+<ul>
+<li>  <b>master1</b> =&gt; a French subsidiary
+</li>
+<li>  <b>master2</b> =&gt; a British subsidiary
+</li>
+</ul>
+<p>Both have the same database PRODUCTION but the data are totally differents.
+</p><p><a href="/wiki/index.php/File:ScreenShot038.png" class="image"><img alt="ScreenShot038.png" src="/wiki/images/d/d4/ScreenShot038.png" width="533" height="271"></a>
+</p><p><i>(screenshot made from my own tool of monitoring&nbsp;: pmacli, you have to read 10.10.16.232 on master2 and not 10.10.16.235 the fault to my admin system&nbsp;:p)</i>
+</p><p><br>
+We will start with 3 servers (2 masters and 1 slave), you can add more master if needed. For this tutorial I used Ubuntu 12.04. I let you choose the right procedure for your distribution on [<a rel="nofollow" class="external text" href="https://downloads.mariadb.org/mariadb/repositories/%7CMariaDB">Downloads</a>]
+</p>
+<div id="toc" class="toc"><div id="toctitle"><h2>Contents</h2><span class="toctoggle">&nbsp;[<a href="#" class="internal" id="togglelink">hide</a>]&nbsp;</span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Informations"><span class="tocnumber">1</span> <span class="toctext">Informations</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Default_installation_on_3_servers"><span class="tocnumber">2</span> <span class="toctext">Default installation on 3 servers</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Create_users_on_both_master"><span class="tocnumber">3</span> <span class="toctext">Create users on both master</span></a>
+<ul>
+<li class="toclevel-2 tocsection-4"><a href="#Create_replication.27s_user_on_both_master"><span class="tocnumber">3.1</span> <span class="toctext">Create replication's user on both master</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#Create_an_user_for_external_backup"><span class="tocnumber">3.2</span> <span class="toctext">Create an user for external backup</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-6"><a href="#Only_in_case_for_test_usage"><span class="tocnumber">4</span> <span class="toctext">Only in case for test usage</span></a>
+<ul>
+<li class="toclevel-2 tocsection-7"><a href="#Create_a_database_on_master1_.2810.10.16.231.29"><span class="tocnumber">4.1</span> <span class="toctext">Create a database on <b>master1</b> (10.10.16.231)</span></a></li>
+<li class="toclevel-2 tocsection-8"><a href="#Create_a_database_on_master2_.2810.10.16.232.29"><span class="tocnumber">4.2</span> <span class="toctext">Create a database on <b>master2</b> (10.10.16.232)</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-9"><a href="#Dump_your_master1_and_master2_databases_from_slave_.2810.10.16.233.29"><span class="tocnumber">5</span> <span class="toctext">Dump your <b>master1</b> and <b>master2</b> databases from <b>slave</b> (10.10.16.233)</span></a></li>
+<li class="toclevel-1 tocsection-10"><a href="#Set_up_both_replication_on_slave"><span class="tocnumber">6</span> <span class="toctext">Set up both replication on <b>slave</b></span></a>
+<ul>
+<li class="toclevel-2 tocsection-11"><a href="#French_subsidiary"><span class="tocnumber">6.1</span> <span class="toctext">French subsidiary</span></a></li>
+<li class="toclevel-2 tocsection-12"><a href="#English_subsidiary"><span class="tocnumber">6.2</span> <span class="toctext">English subsidiary</span></a></li>
+<li class="toclevel-2 tocsection-13"><a href="#Rules_of_replication_on_config_file"><span class="tocnumber">6.3</span> <span class="toctext">Rules of replication on config file</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-14"><a href="#Tests"><span class="tocnumber">7</span> <span class="toctext">Tests</span></a></li>
+<li class="toclevel-1 tocsection-15"><a href="#Limitations"><span class="tocnumber">8</span> <span class="toctext">Limitations</span></a>
+<ul>
+<li class="toclevel-2 tocsection-16"><a href="#A_real_example"><span class="tocnumber">8.1</span> <span class="toctext">A real example</span></a>
+<ul>
+<li class="toclevel-3 tocsection-17"><a href="#Missing_update"><span class="tocnumber">8.1.1</span> <span class="toctext">Missing update</span></a></li>
+<li class="toclevel-3 tocsection-18"><a href="#Crash_replication"><span class="tocnumber">8.1.2</span> <span class="toctext">Crash replication</span></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-19"><a href="#Author"><span class="tocnumber">9</span> <span class="toctext">Author</span></a></li>
+<li class="toclevel-1 tocsection-20"><a href="#License"><span class="tocnumber">10</span> <span class="toctext">License</span></a></li>
+</ul>
+</div>
+
+<h1><span class="mw-headline" id="Informations">Informations</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=1" title="Edit section: Informations">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<ul>
+<li> 10.10.16.231&nbsp;: first master (called after with <b>master1</b>) =&gt; a French subsidiary
+</li>
+<li> 10.10.16.232&nbsp;: second master (called after with <b>master2</b>)  =&gt; a British subsidiary
+</li>
+<li> 10.10.16.233&nbsp;: slave (multi-master) (called after with <b>slave</b>)
+</li>
+</ul>
+<p>If you have already your 3 servers correctly installed go directly to&nbsp;: "Dump your databases"
+</p>
+<h1><span class="mw-headline" id="Default_installation_on_3_servers">Default installation on 3 servers</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=2" title="Edit section: Default installation on 3 servers">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw2">apt-get</span> <span class="re5">-y</span> <span class="kw2">install</span> python-software-properties
+<span class="kw2">apt-key adv</span> <span class="re5">--recv-keys</span> <span class="re5">--keyserver</span> hkp:<span class="sy0">//</span>keyserver.ubuntu.com:<span class="nu0">80</span> 0xcbcb082a1bb943db</pre></div></div>
+<p><br>
+The main reason I put it in a different file because we use a configuration manager as chef and this one overright /etc/apt/sources.list, the other reason if any trouble just remove this file and you restart with default configuration.
+</p><p><br>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw3">echo</span> <span class="st0">"deb http://mirror.stshosting.co.uk/mariadb/repo/10.0/ubuntu precise main"</span> <span class="sy0">&gt;</span> <span class="sy0">/</span>etc<span class="sy0">/</span>apt<span class="sy0">/</span>sources.list.d<span class="sy0">/</span>mariadb.list</pre></div></div>
+<p><br>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw2">apt-get update</span>
+<span class="kw2">apt-get install</span> mariadb-server</pre></div></div>
+<p><br>
+The goal of this small script is to get the IP of the server and make a CRC32 from this IP to generate one uniq server-id, generally the cmd crc32 isn't installed so we will use the one my MySQL, to set account // password we use the account system of Debian / Ubuntu.
+</p><p><br>
+Even if your server have more interface you should have no trouble because the IP should be uniq.
+</p><p><br>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="re2">user</span>=<span class="sy0">`</span><span class="kw2">egrep</span> user <span class="sy0">/</span>etc<span class="sy0">/</span>mysql<span class="sy0">/</span>debian.cnf <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">' '</span> <span class="sy0">|</span> <span class="kw2">cut</span> <span class="re5">-d</span> <span class="st_h">'='</span> <span class="re5">-f</span> <span class="nu0">2</span> <span class="sy0">|</span> <span class="kw2">head</span> <span class="re5">-n1</span> <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">'\n'</span><span class="sy0">`</span>
+<span class="re2">passwd</span>=<span class="sy0">`</span><span class="kw2">egrep</span> password <span class="sy0">/</span>etc<span class="sy0">/</span>mysql<span class="sy0">/</span>debian.cnf <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">' '</span> <span class="sy0">|</span> <span class="kw2">cut</span> <span class="re5">-d</span> <span class="st_h">'='</span> <span class="re5">-f</span> <span class="nu0">2</span> <span class="sy0">|</span> <span class="kw2">head</span> <span class="re5">-n1</span> <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">'\n'</span><span class="sy0">`</span>
+<span class="re2">ip</span>=<span class="sy0">`</span><span class="kw2">ifconfig</span> eth0 <span class="sy0">|</span> <span class="kw2">grep</span> <span class="st0">"inet addr"</span> <span class="sy0">|</span> <span class="kw2">awk</span> -F: <span class="st_h">'{print $2}'</span> <span class="sy0">|</span> <span class="kw2">awk</span> <span class="st_h">'{print $1}'</span> <span class="sy0">|</span> <span class="kw2">head</span> <span class="re5">-n1</span> <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">'\n'</span><span class="sy0">`</span>
+<span class="re2">crc32</span>=<span class="sy0">`</span>mysql <span class="re5">-u</span> <span class="re1">$user</span> -p<span class="re1">$passwd</span> <span class="re5">-e</span> <span class="st0">"SELECT CRC32('<span class="es2">$ip</span>')"</span><span class="sy0">`</span>
+<span class="re2">id_server</span>=<span class="sy0">`</span><span class="kw3">echo</span> <span class="re5">-n</span> <span class="re1">$crc32</span> <span class="sy0">|</span> <span class="kw2">cut</span> <span class="re5">-d</span> <span class="st_h">' '</span> <span class="re5">-f</span> <span class="nu0">2</span> <span class="sy0">|</span> <span class="kw2">tr</span> <span class="re5">-d</span> <span class="st_h">'\n'</span><span class="sy0">`</span></pre></div></div>
+<p>The file of configuration, not the one I use in production but a minimalist just to show you, because the config may work fine for me but maybe it's will be not the same for you or just crash your server MySQL
+</p><p>If you are interested by my default install for Photobox of MariaDB 10 you see it here&nbsp;: <a rel="nofollow" class="external free" href="https://github.com/Esysteme/Debian/blob/master/mariadb10_on_ubuntu12_04.sh">https://github.com/Esysteme/Debian/blob/master/mariadb10_on_ubuntu12_04.sh</a>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw2">cat</span> <span class="sy0">&gt;&gt;</span> <span class="sy0">/</span>etc<span class="sy0">/</span>mysql<span class="sy0">/</span>conf.d<span class="sy0">/</span>mariadb10.cnf <span class="co2">&lt;&lt; EOF
+&nbsp;
+[client]
+&nbsp;
+# default-character-set = utf8
+&nbsp;
+[mysqld]
+character-set-client-handshake = FALSE
+character-set-server = utf8
+collation-server = utf8_general_ci
+&nbsp;
+bind-address        = 0.0.0.0
+external-locking    = off
+skip-name-resolve
+&nbsp;
+#make a crc32 of ip server
+server-id=$id_server
+&nbsp;
+#to prevent auto start of thread slave
+skip-slave-start
+&nbsp;
+[mysql]
+default-character-set   = utf8
+&nbsp;
+EOF</span></pre></div></div>
+<p>We restart the server
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="sy0">/</span>etc<span class="sy0">/</span>init.d<span class="sy0">/</span>mysql restart</pre></div></div>
+<p><br>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"> <span class="sy0">*</span> Stopping MariaDB database server mysqld                                        <span class="br0">[</span> OK <span class="br0">]</span>
+ <span class="sy0">*</span> Starting MariaDB database server mysqld                                        <span class="br0">[</span> OK <span class="br0">]</span>
+ <span class="sy0">*</span> Checking <span class="kw1">for</span> corrupt, not cleanly closed and upgrade needing tables.</pre></div></div>
+<p><br>
+</p><p><b>Repeat these actions on 3 servers.</b>
+</p><p><br>
+</p>
+<h1><span class="mw-headline" id="Create_users_on_both_master">Create users on both master</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=3" title="Edit section: Create users on both master">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<h2><span class="mw-headline" id="Create_replication.27s_user_on_both_master">Create replication's user on both master</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=4" title="Edit section: Create replication's user on both master">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>on <b>master1</b> (10.10.16.231)
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">mysql <span class="re5">-u</span> root <span class="re5">-p</span> <span class="re5">-e</span> <span class="st0">"GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'replication'@'%' IDENTIFIED BY 'passwd';flush privileges;"</span></pre></div></div>
+<p>on <b>master2</b> (10.10.16.232)
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">mysql <span class="re5">-u</span> root <span class="re5">-p</span> <span class="re5">-e</span> <span class="st0">"GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'replication'@'%' IDENTIFIED BY 'passwd';flush privileges;"</span></pre></div></div>
+<h2><span class="mw-headline" id="Create_an_user_for_external_backup">Create an user for external backup</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=5" title="Edit section: Create an user for external backup">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>On <b>master1</b> and on <b>master2</b>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">mysql <span class="re5">-u</span> root <span class="re5">-p</span> <span class="re5">-e</span> <span class="st0">"GRANT SELECT, LOCK TABLES, RELOAD, REPLICATION CLIENT, SUPER ON *.* TO 'backup'@'10.10.16.%' IDENTIFIED BY 'passwd' WITH GRANT OPTION; flush privileges;"</span></pre></div></div>
+<h1><span class="mw-headline" id="Only_in_case_for_test_usage">Only in case for test usage</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=6" title="Edit section: Only in case for test usage">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p>Considering you didn't have a such configuration and you want to test it
+</p>
+<h2><span class="mw-headline" id="Create_a_database_on_master1_.2810.10.16.231.29">Create a database on <b>master1</b> (10.10.16.231)</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=7" title="Edit section: Create a database on master1 (10.10.16.231)">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master1 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">CREATE</span> <span class="kw1">DATABASE</span> PRODUCTION;</pre></div></div>
+<h2><span class="mw-headline" id="Create_a_database_on_master2_.2810.10.16.232.29">Create a database on <b>master2</b> (10.10.16.232)</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=8" title="Edit section: Create a database on master2 (10.10.16.232)">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master2 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">CREATE</span> <span class="kw1">DATABASE</span> PRODUCTION;</pre></div></div>
+<h1><span class="mw-headline" id="Dump_your_master1_and_master2_databases_from_slave_.2810.10.16.233.29">Dump your <b>master1</b> and <b>master2</b> databases from <b>slave</b> (10.10.16.233)</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=9" title="Edit section: Dump your master1 and master2 databases from slave (10.10.16.233)">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p>All the commands until the end have to be done on the <b>slave</b> server
+</p>
+<ul>
+<li> <code>--master-data=2</code> get the file (binary log) and the position, and put it at the begining of the dump in comment
+</li>
+<li> <code>--single-transaction</code>&nbsp;: This option issues a BEGIN SQL statement before dumping data from the server (work only with table with engine InnoDB)
+</li>
+</ul>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">mysqldump <span class="re5">-h</span> 10.10.16.231 <span class="re5">-u</span> root <span class="re5">-p</span> <span class="re5">--master-data</span>=<span class="nu0">2</span> <span class="re5">--single-transaction</span> PRODUCTION <span class="sy0">&gt;</span> PRODUCTION_10.10.16.231.sql
+mysqldump <span class="re5">-h</span> 10.10.16.232 <span class="re5">-u</span> root <span class="re5">-p</span> <span class="re5">--master-data</span>=<span class="nu0">2</span> <span class="re5">--single-transaction</span> PRODUCTION <span class="sy0">&gt;</span> PRODUCTION_10.10.16.232.sql</pre></div></div>
+<p>create both new database
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">slave<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">CREATE</span> <span class="kw1">DATABASE</span> PRODUCTION_FR;
+slave<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">CREATE</span> <span class="kw1">DATABASE</span> PRODUCTION_UK;</pre></div></div>
+<p>load the data&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">mysql <span class="re5">-h</span> 10.10.16.233 <span class="re5">-u</span> root <span class="re5">-p</span> PRODUCTION_FR <span class="sy0">&lt;</span> PRODUCTION_10.10.16.231.sql
+mysql <span class="re5">-h</span> 10.10.16.233 <span class="re5">-u</span> root <span class="re5">-p</span> PRODUCTION_UK <span class="sy0">&lt;</span> PRODUCTION_10.10.16.232.sql</pre></div></div>
+<h1><span class="mw-headline" id="Set_up_both_replication_on_slave">Set up both replication on <b>slave</b></span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=10" title="Edit section: Set up both replication on slave">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p>Edit both dump and get file and position of the binlog and replace it here&nbsp;: (use the comand "less" instead other in hudge files)
+</p><p><br>
+</p>
+<h2><span class="mw-headline" id="French_subsidiary">French subsidiary</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=11" title="Edit section: French subsidiary">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw2">less</span> PRODUCTION_10.10.16.231.sql</pre></div></div>
+<p>get the line&nbsp;: (file and position will be different)
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="co1">-- CHANGE MASTER TO MASTER_LOG_FILE='mariadb-bin.000010', MASTER_LOG_POS=771;</span></pre></div></div>
+<p>replace file and position in&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">CHANGE</span> MASTER <span class="st0">'PRODUCTION_FR'</span> <span class="kw1">TO</span> MASTER_HOST <span class="sy0">=</span> <span class="st0">"10.10.16.231"</span><span class="sy0">,</span> MASTER_USER <span class="sy0">=</span> <span class="st0">"replication"</span><span class="sy0">,</span> MASTER_PASSWORD <span class="sy0">=</span><span class="st0">"passwd"</span><span class="sy0">,</span> MASTER_LOG_FILE<span class="sy0">=</span><span class="st0">'mariadb-bin.000010'</span><span class="sy0">,</span> MASTER_LOG_POS<span class="sy0">=</span><span class="nu0">771</span>;</pre></div></div>
+<h2><span class="mw-headline" id="English_subsidiary">English subsidiary</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=12" title="Edit section: English subsidiary">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="kw2">less</span> PRODUCTION_10.10.16.232.sql</pre></div></div>
+<p>get the line&nbsp;: (file and position will be different, for my test was exactly the same)
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="co1">-- CHANGE MASTER TO MASTER_LOG_FILE='mariadb-bin.000010', MASTER_LOG_POS=771;</span></pre></div></div>
+<p>replace file and position in&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">CHANGE</span> MASTER <span class="st0">'PRODUCTION_UK'</span> <span class="kw1">TO</span> MASTER_HOST <span class="sy0">=</span> <span class="st0">"10.10.16.232"</span><span class="sy0">,</span> MASTER_USER <span class="sy0">=</span> <span class="st0">"replication"</span><span class="sy0">,</span> MASTER_PASSWORD <span class="sy0">=</span><span class="st0">"passwd"</span><span class="sy0">,</span> MASTER_LOG_FILE<span class="sy0">=</span><span class="st0">'mariadb-bin.000010'</span><span class="sy0">,</span> MASTER_LOG_POS<span class="sy0">=</span><span class="nu0">771</span>;</pre></div></div>
+<h2><span class="mw-headline" id="Rules_of_replication_on_config_file">Rules of replication on config file</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=13" title="Edit section: Rules of replication on config file">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Unfortunatly the option <code>replicate-rewrite-db</code> doesn't exist on variables and we cannot set up this kind of configuration without restart the slave server.
+</p><p>In part of slave add the following line to <code>/etc/mysql/conf.d/mariadb10.cnf</code>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1">PRODUCTION_FR.replicate-rewrite-db=<span class="st0">"PRODUCTION-&gt;PRODUCTION_FR"</span>
+PRODUCTION_UK.replicate-rewrite-db=<span class="st0">"PRODUCTION-&gt;PRODUCTION_UK"</span>
+PRODUCTION_FR.replicate-do-db=<span class="st0">"PRODUCTION_FR"</span>
+PRODUCTION_UK.replicate-do-db=<span class="st0">"PRODUCTION_UK"</span></pre></div></div>
+<p>After you can restart the daemon without problem, but don't forgot to launch the slaves because we skiped it at start&nbsp;;).
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="bash source-bash"><pre class="de1"><span class="sy0">/</span>etc<span class="sy0">/</span>init.d<span class="sy0">/</span>mysql restart</pre></div></div>
+<p><br>
+Start the replication&nbsp;:
+</p>
+<ul>
+<li> one by one&nbsp;:
+</li>
+</ul>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">START</span> SLAVE <span class="st0">'PRODUCTION_FR'</span>;
+<span class="kw1">START</span> SLAVE <span class="st0">'PRODUCTION_UK'</span>;</pre></div></div>
+<ul>
+<li> all in same time&nbsp;:
+</li>
+</ul>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">START</span> <span class="kw1">ALL</span> SLAVES;</pre></div></div>
+<p><br>
+Now to check the replication&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">slave<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">SHOW</span> SLAVE <span class="st0">'PRODUCTION_UK'</span> <span class="kw1">STATUS</span>;
+slave<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">SHOW</span> SLAVE <span class="st0">'PRODUCTION_FR'</span> <span class="kw1">STATUS</span>;
+slave<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">SHOW</span> <span class="kw1">ALL</span> SLAVES <span class="kw1">STATUS</span>;</pre></div></div>
+<p><br>
+</p>
+<h1><span class="mw-headline" id="Tests">Tests</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=14" title="Edit section: Tests">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p>on <b>slave</b>&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">slave <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION_FR;
+<span class="kw1">DATABASE</span> changed
+slave <span class="br0">[</span>PRODUCTION_FR<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SHOW</span> <span class="kw1">TABLES</span>;
+Empty <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+slave <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION_UK;
+<span class="kw1">DATABASE</span> changed
+slave <span class="br0">[</span>PRODUCTION_UK<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SHOW</span> <span class="kw1">TABLES</span>;
+Empty <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p><br>
+on <b>master1</b>&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master1 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION;
+<span class="kw1">DATABASE</span> changed
+master1 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">CREATE</span> <span class="kw1">TABLE</span> <span class="st0">`france`</span> <span class="br0">(</span>id <span class="kw1">INT</span><span class="br0">)</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">0</span> <span class="kw1">ROWS</span> affected <span class="br0">(</span><span class="nu0">0.13</span> sec<span class="br0">)</span>
+&nbsp;
+master1 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">INSERT</span> <span class="kw1">INTO</span> <span class="st0">`france`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">1</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">1</span> <span class="kw1">ROW</span> affected <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p><br>
+</p><p>on <b>master2</b>&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master2 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION;
+<span class="kw1">DATABASE</span> changed
+master2 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">CREATE</span> <span class="kw1">TABLE</span> <span class="st0">`british`</span> <span class="br0">(</span>id <span class="kw1">INT</span><span class="br0">)</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">0</span> <span class="kw1">ROWS</span> affected <span class="br0">(</span><span class="nu0">0.13</span> sec<span class="br0">)</span>
+&nbsp;
+master2 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">INSERT</span> <span class="kw1">INTO</span> <span class="st0">`british`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">2</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">1</span> <span class="kw1">ROW</span> affected <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p><br>
+</p><p>on <b>slave</b>&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="co1">-- for FRANCE</span>
+slave <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION_FR;
+<span class="kw1">DATABASE</span> changed
+slave <span class="br0">[</span>PRODUCTION_FR<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SHOW</span> <span class="kw1">TABLES</span>;
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="sy0">|</span> Tables_in_PRODUCTION_FR <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="sy0">|</span> france                  <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+slave <span class="br0">[</span>PRODUCTION_FR<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span> france;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">1</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+&nbsp;
+<span class="co1">-- for British</span>
+slave <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION_UK;
+<span class="kw1">DATABASE</span> changed
+&nbsp;
+&nbsp;
+slave <span class="br0">[</span>PRODUCTION_UK<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SHOW</span> <span class="kw1">TABLES</span>;
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="sy0">|</span> Tables_in_PRODUCTION_UK <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="sy0">|</span> british                 <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">-------------------------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+slave <span class="br0">[</span>PRODUCTION_UK<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span> british;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">2</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p>It works&nbsp;!
+</p>
+<h1><span class="mw-headline" id="Limitations">Limitations</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=15" title="Edit section: Limitations">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p><b>WARNING</b>&nbsp;: it doesn't work with the database specified in query.
+</p><p><br>
+This work fine&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">USE</span> PRODUCTION;
+<span class="kw1">UPDATE</span> <span class="st0">`ma_table`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">1</span> <span class="kw1">WHERE</span> id <span class="sy0">=</span><span class="nu0">2</span>;</pre></div></div>
+<p>This query will break the replication&nbsp;:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1"><span class="kw1">USE</span> PRODUCTION;
+<span class="kw1">UPDATE</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`ma_table`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">1</span> <span class="kw1">WHERE</span> id <span class="sy0">=</span><span class="nu0">2</span>;</pre></div></div>
+<p>=&gt; databases `PRODUCTION` does not exist on this server.
+</p><p><br>
+</p>
+<h2><span class="mw-headline" id="A_real_example">A real example</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=16" title="Edit section: A real example">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<h3><span class="mw-headline" id="Missing_update">Missing update</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=17" title="Edit section: Missing update">edit</a><span class="mw-editsection-bracket">]</span></span></h3>
+<p>on <b>master1</b>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master1 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">UPDATE</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">3</span> <span class="kw1">WHERE</span> id <span class="sy0">=</span><span class="nu0">1</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">1</span> <span class="kw1">ROW</span> affected <span class="br0">(</span><span class="nu0">0.02</span> sec<span class="br0">)</span>
+<span class="kw1">ROWS</span> matched: <span class="nu0">1</span>  Changed: <span class="nu0">1</span>  Warnings: <span class="nu0">0</span>
+&nbsp;
+master1 <span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span>;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">3</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p>on <b>slave</b>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">slave <span class="br0">[</span>PRODUCTION_FR<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span> france;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">1</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span></pre></div></div>
+<p>In this case we miss the update, it a real problem, because the replication should crash, our <b>slave</b> is desynchronized with <b>master1</b> and we didn't know it.
+</p>
+<h3><span class="mw-headline" id="Crash_replication">Crash replication</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=18" title="Edit section: Crash replication">edit</a><span class="mw-editsection-bracket">]</span></span></h3>
+<p>on <b>master1</b>:
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">master1<span class="br0">[</span><span class="br0">(</span><span class="kw1">NONE</span><span class="br0">)</span><span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">USE</span> PRODUCTION;
+<span class="kw1">DATABASE</span> changed
+&nbsp;
+&nbsp;
+master1 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span><span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span>;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">3</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+master1 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span><span class="kw1">UPDATE</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">4</span> <span class="kw1">WHERE</span> id <span class="sy0">=</span><span class="nu0">3</span>;
+Query OK<span class="sy0">,</span> <span class="nu0">1</span> <span class="kw1">ROW</span> affected <span class="br0">(</span><span class="nu0">0.01</span> sec<span class="br0">)</span>
+<span class="kw1">ROWS</span> matched: <span class="nu0">1</span>  Changed: <span class="nu0">1</span>  Warnings: <span class="nu0">0</span>
+&nbsp;
+master1 <span class="br0">[</span>PRODUCTION<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SELECT</span> <span class="sy0">*</span> <span class="kw1">FROM</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span>;
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span> id   <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="sy0">|</span>    <span class="nu0">4</span> <span class="sy0">|</span>
+<span class="sy0">+</span><span class="co1">------+</span>
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.01</span> sec<span class="br0">)</span></pre></div></div>
+<p><br>
+<i>on pmacli</i>
+</p><p><a href="/wiki/index.php/File:ScreenShot039.png" class="image"><img alt="ScreenShot039.png" src="/wiki/images/e/ef/ScreenShot039.png" width="531" height="265"></a>
+</p><p><br>
+</p><p><br>
+</p><p>on <b>slave</b>
+</p>
+<div dir="ltr" class="mw-geshi mw-code mw-content-ltr"><div class="sql source-sql"><pre class="de1">slave <span class="br0">[</span>PRODUCTION_FR<span class="br0">]</span><span class="sy0">&gt;</span> <span class="kw1">SHOW</span> slave <span class="st0">'PRODUCTION_FR'</span> <span class="kw1">STATUS</span>\G;
+<span class="sy0">***************************</span> <span class="nu0">1</span><span class="sy0">.</span> <span class="kw1">ROW</span> <span class="sy0">***************************</span>
+               Slave_IO_State: Waiting <span class="kw1">FOR</span> master <span class="kw1">TO</span> send event
+                  Master_Host: 10<span class="sy0">.</span>10<span class="sy0">.</span>16<span class="sy0">.</span>231
+                  Master_User: replication
+                  Master_Port: <span class="nu0">3306</span>
+                Connect_Retry: <span class="nu0">60</span>
+              Master_Log_File: mariadb<span class="sy0">-</span>bin<span class="sy0">.</span>000010
+          Read_Master_Log_Pos: <span class="nu0">2737</span>
+               Relay_Log_File: mysqld<span class="sy0">-</span>relay<span class="sy0">-</span>bin<span class="sy0">-</span>production_fr<span class="sy0">.</span>000003
+                Relay_Log_Pos: <span class="nu0">2320</span>
+        Relay_Master_Log_File: mariadb<span class="sy0">-</span>bin<span class="sy0">.</span>000010
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: No
+              Replicate_Do_DB: PRODUCTION_FR
+          Replicate_Ignore_DB:
+           Replicate_Do_Table:
+       Replicate_Ignore_Table:
+      Replicate_Wild_Do_Table:
+  Replicate_Wild_Ignore_Table:
+                   Last_Errno: <span class="nu0">1146</span>
+                   Last_Error: Error <span class="st0">'Table '</span>PRODUCTION<span class="sy0">.</span>france<span class="st0">' doesn'</span>t exist<span class="st0">' on query. Default database: '</span>PRODUCTION_FR<span class="st0">'. Query: '</span><span class="kw1">UPDATE</span> <span class="st0">`PRODUCTION`</span><span class="sy0">.</span><span class="st0">`france`</span> <span class="kw1">SET</span> id<span class="sy0">=</span><span class="nu0">4</span> <span class="kw1">WHERE</span> id <span class="sy0">=</span><span class="nu0">3</span><span class="st0">'
+                 Skip_Counter: 0
+          Exec_Master_Log_Pos: 2554
+              Relay_Log_Space: 2815
+              Until_Condition: None
+               Until_Log_File:
+                Until_Log_Pos: 0
+           Master_SSL_Allowed: No
+           Master_SSL_CA_File:
+           Master_SSL_CA_Path:
+              Master_SSL_Cert:
+            Master_SSL_Cipher:
+               Master_SSL_Key:
+        Seconds_Behind_Master: NULL
+Master_SSL_Verify_Server_Cert: No
+                Last_IO_Errno: 0
+                Last_IO_Error:
+               Last_SQL_Errno: 1146
+               Last_SQL_Error: Error '</span><span class="kw1">TABLE</span> <span class="st0">'PRODUCTION.france'</span> doesn<span class="st0">'t exist'</span> <span class="kw1">ON</span> query<span class="sy0">.</span> <span class="kw1">DEFAULT</span> <span class="kw1">DATABASE</span>: <span class="st0">'PRODUCTION_FR'</span><span class="sy0">.</span> Query: <span class="st0">'UPDATE `PRODUCTION`.`france` SET id=4 WHERE id =3'</span>
+  Replicate_Ignore_Server_Ids:
+             Master_Server_Id: <span class="nu0">2370966657</span>
+               Master_SSL_Crl:
+           Master_SSL_Crlpath:
+                   Using_Gtid: No
+                  Gtid_IO_Pos:
+<span class="nu0">1</span> <span class="kw1">ROW</span> <span class="kw1">IN</span> <span class="kw1">SET</span> <span class="br0">(</span><span class="nu0">0.00</span> sec<span class="br0">)</span>
+&nbsp;
+ERROR: No query specified</pre></div></div>
+<p><br>
+And we got the error which crash replication&nbsp;: Error <b>TABLE 'PRODUCTION.france' doesn't exist' ON query. DEFAULT DATABASE: 'PRODUCTION_FR'. Query: 'UPDATE `PRODUCTION`.`france` SET id=4 WHERE id =3</b>
+</p>
+<h1><span class="mw-headline" id="Author">Author</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=19" title="Edit section: Author">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<p><a href="/wiki/index.php/File:PhotoBox_NewLogo_jan07_1.jpg" class="image"><img alt="PhotoBox NewLogo jan07 1.jpg" src="/wiki/images/e/ee/PhotoBox_NewLogo_jan07_1.jpg" width="300" height="72"></a>
+</p>
+<ul>
+<li> Photobox&nbsp;: <a rel="nofollow" class="external free" href="http://www.photobox.com/">http://www.photobox.com/</a>
+</li>
+<li> Author&nbsp;: Aurélien LEQUOY &lt;aurelien.lequoy＠photobox.com&gt; you don’t copy/paste the email, it won’t work. You didn’t think I would post it like that in the open for all bots, right?&nbsp;;).
+</li>
+</ul>
+<h1><span class="mw-headline" id="License">License</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;action=edit&amp;section=20" title="Edit section: License">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
+<ul>
+<li> This article is under&nbsp;: <b>The GNU General Public License v3.0</b> <a rel="nofollow" class="external free" href="http://opensource.org/licenses/GPL-3.0">http://opensource.org/licenses/GPL-3.0</a>
+</li>
+</ul>
+
+<!-- 
+NewPP limit report
+CPU time usage: 0.484 seconds
+Real time usage: 0.581 seconds
+Preprocessor visited node count: 403/1000000
+Preprocessor generated node count: 804/1000000
+Post‐expand include size: 0/2097152 bytes
+Template argument size: 0/2097152 bytes
+Highest expansion depth: 2/40
+Expensive parser function count: 0/100
+-->
+
+<!-- Saved in parser cache with key wiki:pcache:idhash:23-0!*!*!!en-gb!2!* and timestamp 20140704125251
+ -->
+</div>								<div class="printfooter">
+				Retrieved from ‘<a href="http://dba-tools-sa-01.photobox.com/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;oldid=264">http://dba-tools-sa-01.photobox.com/wiki/index.php?title=Multi_master_with_MariaDB_10&amp;oldid=264</a>’				</div>
+												<div id="catlinks" class="catlinks catlinks-allhidden"></div>												<div class="visualClear"></div>
+							</div>
+		</div>
