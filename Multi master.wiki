@@ -6,7 +6,7 @@ Example :
 
 Both have the same database PRODUCTION but the data are totally differents.
 
-[[File:ScreenShot038.png]]
+[[File:http://www.mysqlplus.net/wp-content/uploads/2014/06/ScreenShot038.png]]
 
 ''(screenshot made from my own tool of monitoring : pmacli, you have to read 10.10.16.232 on master2 and not 10.10.16.235 the fault to my admin system :p)''
 
