@@ -441,7 +441,7 @@ master1 [PRODUCTION]> SELECT * FROM `PRODUCTION`.`france`;
 
 ''on pmacli''
 
-[[File:ScreenShot039.png]]
+[[File:http://www.mysqlplus.net/wp-content/uploads/2014/06/ScreenShot039.png]]
 
 
 
@@ -508,7 +508,7 @@ And we got the error which crash replication : Error '''TABLE 'PRODUCTION.france
 = Author = 
 
 
-[[File:PhotoBox_NewLogo_jan07_1.jpg]]
+[[File:http://www.mysqlplus.net/wp-content/uploads/2014/06/PhotoBox_NewLogo_jan07_1.jpg]]
 
 * Photobox : http://www.photobox.com/
 * Author : Aurélien LEQUOY <aurelien.lequoy＠photobox.com> you don’t copy/paste the email, it won’t work. You didn’t think I would post it like that in the open for all bots, right? ;).
