@@ -23,10 +23,10 @@ If you have already your 3 servers correctly installed go directly to : "Dump yo
 
 = Default installation on 3 servers =
 
-<source lang="bash">
+```bash
 apt-get -y install python-software-properties
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xcbcb082a1bb943db
-</source>
+```
 
 
 The main reason I put it in a different file because we use a configuration manager as chef and this one overright /etc/apt/sources.list, the other reason if any trouble just remove this file and you restart with default configuration.
