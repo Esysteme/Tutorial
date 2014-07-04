@@ -450,7 +450,7 @@ master1 [PRODUCTION]> SELECT * FROM `PRODUCTION`.`france`;
 on '''slave'''
 
 '''sql
-slave [PRODUCTION_FR]> show slave 'PRODUCTION_FR' status\G;
+slave [PRODUCTION_FR]> show slave 'PRODUCTION_FR' status\G
 *************************** 1. row ***************************
                Slave_IO_State: Waiting for master to send event
                   Master_Host: 10.10.16.231
