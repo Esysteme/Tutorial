@@ -449,7 +449,7 @@ master1 [PRODUCTION]> SELECT * FROM `PRODUCTION`.`france`;
 
 on '''slave'''
 
-<source lang="sql">
+'''sql
 slave [PRODUCTION_FR]> show slave 'PRODUCTION_FR' status\G;
 *************************** 1. row ***************************
                Slave_IO_State: Waiting for master to send event
@@ -500,7 +500,7 @@ Master_SSL_Verify_Server_Cert: No
 
 ERROR: No query specified
 
-</source>
+'''
 
 
 And we got the error which crash replication : Error '''TABLE 'PRODUCTION.france' doesn't exist' ON query. DEFAULT DATABASE: 'PRODUCTION_FR'. Query: 'UPDATE `PRODUCTION`.`france` SET id=4 WHERE id =3'''
