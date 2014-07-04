@@ -24,6 +24,7 @@ If you have already your 3 servers correctly installed go directly to : "Dump yo
 = Default installation on 3 servers =
 
 ```
+
 apt-get -y install python-software-properties
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xcbcb082a1bb943db
 ```
