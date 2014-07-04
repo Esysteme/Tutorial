@@ -49,19 +49,19 @@ The goal of this small script is to get the IP of the server and make a CRC32 fr
 Even if your server have more interface you should have no trouble because the IP should be uniq.
 
 
-<source lang="bash">
+```bash
 user=`egrep user /etc/mysql/debian.cnf | tr -d ' ' | cut -d '=' -f 2 | head -n1 | tr -d '\n'`
 passwd=`egrep password /etc/mysql/debian.cnf | tr -d ' ' | cut -d '=' -f 2 | head -n1 | tr -d '\n'`
 ip=`ifconfig eth0 | grep "inet addr" | awk -F: '{print $2}' | awk '{print $1}' | head -n1 | tr -d '\n'`
 crc32=`mysql -u $user -p$passwd -e "SELECT CRC32('$ip')"`
 id_server=`echo -n $crc32 | cut -d ' ' -f 2 | tr -d '\n'`
-</source>
+```
 
 The file of configuration, not the one I use in production but a minimalist just to show you, because the config may work fine for me but maybe it's will be not the same for you or just crash your server MySQL
 
 If you are interested by my default install for Photobox of MariaDB 10 you see it here : https://github.com/Esysteme/Debian/blob/master/mariadb10_on_ubuntu12_04.sh
 
-<source lang="bash">
+```bash
 
 cat >> /etc/mysql/conf.d/mariadb10.cnf << EOF
 
@@ -88,7 +88,7 @@ skip-slave-start
 default-character-set   = utf8
     
 EOF
-</source>
+```
 
 We restart the server
 
